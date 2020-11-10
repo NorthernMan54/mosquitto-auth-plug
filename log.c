@@ -34,6 +34,7 @@
 #include <time.h>
 #include <mosquitto.h>
 #include <mosquitto_plugin.h>
+#include <mosquitto_broker.h>
 #include "log.h"
 
 int log_quiet=0;
@@ -43,7 +44,7 @@ void (*_log)(int priority, const char *fmt, ...);
 void log_init(void)
 {
 #if MOSQ_AUTH_PLUGIN_VERSION >= 3
-	_log = __log;
+	_log = mosquitto_log_printf;
 #elif (LIBMOSQUITTO_MAJOR > 1) || ((LIBMOSQUITTO_MAJOR == 1) && (LIBMOSQUITTO_MINOR >= 4))
 	_log = mosquitto_log_printf;
 #else

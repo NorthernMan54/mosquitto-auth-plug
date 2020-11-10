@@ -552,7 +552,7 @@ int mosquitto_auth_unpwd_check(void *userdata, const char *username, const char 
 			free(phash);
 			phash = NULL;
 		}
-#if MOSQ_AUTH_PLUGIN_VERSION >=3	
+#if MOSQ_AUTH_PLUGIN_VERSION >=3
 		rc = b->getuser(b->conf, username, password, &phash, mosquitto_client_id(client));
 #else
 		rc = b->getuser(b->conf, username, password, &phash, NULL);
@@ -652,17 +652,19 @@ int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *u
 		return MOSQ_DENY_ACL;
 	}
 
-	_log(LOG_DEBUG, "mosquitto_auth_acl_check(..., %s, %s, %s, %d)",
+	_log(LOG_DEBUG, "mosquitto_auth_acl_check(..., %s, %s, %s, %s)",
 		clientid ? clientid : "NULL",
 		username ? username : "NULL",
 		topic ? topic : "NULL",
-		access );
+		access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE" );
 
 
 	granted = acl_cache_q(clientid, username, topic, access, userdata);
 	if (granted != MOSQ_ERR_UNKNOWN) {
-		_log(LOG_DEBUG, "aclcheck(%s, %s, %d) CACHEDAUTH: %d",
-			username, topic, access, granted);
+		_log(LOG_DEBUG, "aclcheck(%s, %s, %s) CACHEDAUTH: %s",
+			username,
+			topic,
+			access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", granted == MOSQ_ERR_SUCCESS ? "MOSQ_ERR_SUCCESS" : granted == MOSQ_ERR_ACL_DENIED ? "MOSQ_ERR_ACL_DENIED" : granted == MOSQ_ERR_UNKNOWN ? "MOSQ_ERR_UNKNOWN" : "MOSQ_ERR_PLUGIN_DEFER");
 		return (granted);
 	}
 
@@ -676,8 +678,8 @@ int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *u
 
 	if (ud->superusers) {
 		if (fnmatch(ud->superusers, username, 0) == 0) {
-			_log(LOG_DEBUG, "aclcheck(%s, %s, %d) GLOBAL SUPERUSER=Y",
-				username, topic, access);
+			_log(LOG_DEBUG, "aclcheck(%s, %s, %s) GLOBAL SUPERUSER=Y",
+				username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE");
 			granted = MOSQ_ERR_SUCCESS;
 			goto outout;
 		}
@@ -688,18 +690,18 @@ int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *u
 
 		match = b->superuser(b->conf, username);
 		if (match == BACKEND_ALLOW) {
-			_log(LOG_DEBUG, "aclcheck(%s, %s, %d) SUPERUSER=Y by %s",
-				username, topic, access, b->name);
+			_log(LOG_DEBUG, "aclcheck(%s, %s, %s) SUPERUSER=Y by %s",
+				username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", b->name);
 			granted = MOSQ_ERR_SUCCESS;
 			goto outout;
 		} else if (match == BACKEND_DENY) {
-			_log(LOG_DEBUG, "aclcheck(%s, %s, %d) SUPERUSER=N by %s",
-				username, topic, access, b->name);
+			_log(LOG_DEBUG, "aclcheck(%s, %s, %s) SUPERUSER=N by %s",
+				username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", b->name);
 			granted = MOSQ_DENY_ACL;
 			goto outout;
 		} else if (match == BACKEND_ERROR) {
-			_log(LOG_DEBUG, "aclcheck(%s, %s, %d) HAS_ERROR=Y by %s",
-				username, topic, access, b->name);
+			_log(LOG_DEBUG, "aclcheck(%s, %s, %s) HAS_ERROR=Y by %s",
+				username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", b->name);
 			has_error = TRUE;
 		}
 	}
@@ -714,8 +716,8 @@ int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *u
 		match = b->aclcheck((*bep)->conf, clientid, username, topic, access);
 		if (match == BACKEND_ALLOW) {
 			backend_name = b->name;
-			_log(LOG_DEBUG, "aclcheck(%s, %s, %d) trying to acl with %s",
-				username, topic, access, b->name);
+			_log(LOG_DEBUG, "aclcheck(%s, %s, %s) trying to acl with %s",
+				username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", b->name);
 			authorized = TRUE;
 			break;
 		} else if (match == BACKEND_DENY) {
@@ -723,22 +725,22 @@ int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *u
 			authorized = FALSE;
 			break;
 		} else if (match == BACKEND_ERROR) {
-			_log(LOG_DEBUG, "aclcheck(%s, %s, %d) HAS_ERROR=Y by %s",
-				username, topic, access, b->name);
+			_log(LOG_DEBUG, "aclcheck(%s, %s, %s) HAS_ERROR=Y by %s",
+				username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", b->name);
 			has_error = TRUE;
 		}
 	}
 
-	_log(LOG_DEBUG, "aclcheck(%s, %s, %d) AUTHORIZED=%d by %s",
-		username, topic, access, authorized, (backend_name) ? backend_name : "none");
+	_log(LOG_DEBUG, "aclcheck(%s, %s, %s) AUTHORIZED=%d by %s",
+		username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE", authorized, (backend_name) ? backend_name : "none");
 
 	granted = (authorized) ?  MOSQ_ERR_SUCCESS : MOSQ_DENY_ACL;
 
    outout:	/* goto fail goto fail */
 
 	if (granted == MOSQ_DENY_ACL && has_error) {
-		_log(LOG_DEBUG, "aclcheck(%s, %s, %d) AUTHORIZED=N HAS_ERROR=Y => ERR_UNKNOWN",
-			username, topic, access);
+		_log(LOG_DEBUG, "aclcheck(%s, %s, %s) AUTHORIZED=N HAS_ERROR=Y => ERR_UNKNOWN",
+			username, topic, access == MOSQ_ACL_READ ? "MOSQ_ACL_READ" : access == MOSQ_ACL_WRITE ? "MOSQ_ACL_WRITE" : "MOSQ_ACL_SUBSCRIBE");
 		granted = MOSQ_ERR_UNKNOWN;
 	}
 
